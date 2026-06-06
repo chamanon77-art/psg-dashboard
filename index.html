@@ -3,304 +3,571 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHINI - Project Dashboard | 项目仪表板</title>
+    <title>SHINI - Executive Project Dashboard | 项目执行仪表板</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PapaParse สำหรับอ่าน CSV -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Chart.js สำหรับ S-Curve -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Frappe Gantt สำหรับ Gantt Chart -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/frappe-gantt/0.6.1/frappe-gantt.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- FontAwesome สำหรับ Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
+    <!-- ฟอนต์ Inter (EN) และ Sarabun (TH) ให้ดูเป็น International EPC -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Sarabun', 'sans-serif'],
+                    },
+                    colors: {
+                        epc: {
+                            navy: '#0f172a',
+                            blue: '#1d4ed8',
+                            light: '#f8fafc',
+                            border: '#e2e8f0'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        body { font-family: 'Sarabun', sans-serif; background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%); min-height: 100vh; }
-        .card { background-color: rgba(255, 255, 255, 0.95); border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 1.5rem; border: 1px solid rgba(229, 231, 235, 0.5); backdrop-filter: blur(10px); }
-        .gantt-container { overflow-x: auto; width: 100%; border-radius: 0.5rem; background: white; scroll-behavior: smooth; }
-        .gantt .bar-label { font-family: 'Sarabun', sans-serif !important; font-size: 13px; font-weight: 500; fill: #ffffff; }
-        .gantt .tick text { font-family: 'Sarabun', sans-serif !important; fill: #64748b; font-size: 12px; }
+        body { background-color: #f1f5f9; color: #334155; }
+        .executive-card { 
+            background: #ffffff; 
+            border-radius: 0.5rem; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05); 
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+        }
+        
+        /* สไตล์ Gantt Chart แบบ Corporate */
+        .gantt-container { overflow-x: auto; width: 100%; border-radius: 0.375rem; background: #fff; }
+        .gantt .bar-label { font-family: 'Inter', 'Sarabun', sans-serif !important; font-size: 12px; font-weight: 600; fill: #ffffff; }
+        .gantt .tick text { font-family: 'Inter', sans-serif !important; fill: #64748b; font-size: 11px; }
         .gantt .grid-header { fill: #f8fafc; stroke: #e2e8f0; }
-        .gantt .grid-row { stroke: #e2e8f0; }
+        .gantt .grid-row { stroke: #f1f5f9; }
         .gantt .bar-progress { fill: #2563eb; } 
-        .gantt .bar-milestone .bar { fill: #059669; }
-        .gantt .today-highlight { fill: rgba(251, 191, 36, 0.15); } 
-        ::-webkit-scrollbar { width: 8px; height: 10px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .gantt .bar-wrapper.active .bar { fill: #1d4ed8; }
+        .gantt .today-highlight { fill: rgba(239, 68, 68, 0.1); } 
+        
+        /* Task Table Styles */
+        .table-row-hover:hover { background-color: #f8fafc; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
-<body class="text-slate-800 antialiased">
+<body class="antialiased">
 
-    <header class="bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-xl border-b-4 border-blue-600">
-        <div class="container mx-auto px-6 py-6">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <div class="flex items-center gap-3 mb-2">
-                        <span class="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">Project Report</span>
-                        <span class="text-sm text-slate-300 font-medium"><i class="far fa-clock mr-1"></i> อัปเดตล่าสุด: <span id="update-date" class="font-semibold text-white">กำลังโหลดข้อมูล...</span></span>
+    <!-- Top Navigation Bar (EPC Style) -->
+    <nav class="bg-epc-navy text-white shadow-md">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-4">
+                    <div class="bg-blue-600 p-2 rounded-lg">
+                        <i class="fas fa-industry text-xl"></i>
                     </div>
-                    <h1 class="text-3xl font-bold tracking-tight mt-2 text-white">งานติดตั้งระบบส่งเม็ดพลาสติก</h1>
-                    <p class="text-lg text-blue-200 mt-1 font-medium">塑料颗粒输送系统安装工程 (Shini)</p>
-                </div>
-                <div class="flex flex-col gap-2 text-sm md:text-right bg-slate-800/80 p-4 rounded-xl border border-slate-600 shadow-inner">
-                    <p><span class="text-slate-400">Owner:</span> <span class="font-bold text-white text-base">Power Logics Tech (Thailand) Co., Ltd.</span></p>
-                    <p><span class="text-slate-400">Contractor:</span> <span class="font-bold text-white text-base">Project Systems Group (PSG)</span></p>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <main class="container mx-auto mt-8 px-4 pb-12">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-            <div class="card relative overflow-hidden group border-t-4 border-t-blue-600">
-                <div class="relative z-10">
-                    <p class="text-sm text-slate-500 font-bold uppercase tracking-wider mb-1">ความคืบหน้ารวม</p>
-                    <div class="flex items-baseline gap-2 mt-2">
-                        <p class="text-5xl font-extrabold text-blue-700" id="overall-progress">--%</p>
+                    <div>
+                        <h1 class="font-bold text-lg leading-tight tracking-wide">SHINI GROUP</h1>
+                        <p class="text-xs text-slate-400 font-medium tracking-widest uppercase">Executive Dashboard</p>
                     </div>
                 </div>
+                <div class="hidden md:block text-right">
+                    <p class="text-sm font-medium">Project Systems Group (PSG)</p>
+                    <p class="text-xs text-slate-400"><i class="fas fa-sync-alt mr-1"></i> Data Live Sync: <span id="sync-time" class="text-emerald-400">Loading...</span></p>
+                </div>
             </div>
+        </div>
+    </nav>
 
-            <div class="card relative overflow-hidden group border-t-4 border-t-emerald-500">
-                <div class="relative z-10">
-                    <p class="text-sm text-slate-500 font-bold uppercase tracking-wider mb-1">สถานะโครงการ</p>
-                    <p class="text-2xl font-bold text-emerald-600 mt-2" id="project-status">กำลังโหลด...</p>
+    <!-- Main Content -->
+    <main class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Project Header Info -->
+        <div class="mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
+            <div>
+                <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mb-3">
+                    Project Ref: PLT-SHINI-2026
+                </div>
+                <h2 class="text-3xl font-bold text-slate-900">งานติดตั้งระบบส่งเม็ดพลาสติก</h2>
+                <h3 class="text-lg text-slate-500 font-medium mt-1">塑料颗粒输送系统安装工程 (Shini Plastics Technologies)</h3>
+                <div class="mt-4 flex items-center gap-6 text-sm text-slate-600">
+                    <div class="flex items-center gap-2">
+                        <i class="far fa-building text-slate-400"></i>
+                        <span><strong class="text-slate-800">Owner:</strong> Power Logics Tech (Thailand) Co., Ltd.</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-map-marker-alt text-slate-400"></i>
+                        <span><strong class="text-slate-800">Site:</strong> PLT Factory, Thailand</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="card relative overflow-hidden group border-t-4 border-t-amber-500">
-                <div class="relative z-10">
-                    <p class="text-sm text-slate-500 font-bold uppercase tracking-wider mb-1">งานปัจจุบันที่ดำเนินการ</p>
-                    <p class="text-xl font-bold text-slate-800 leading-tight mt-2" id="current-task">กำลังโหลด...</p>
+            <!-- Auto-generated Executive Summary -->
+            <div class="executive-card p-4 lg:w-1/3 border-l-4 border-l-blue-600 bg-blue-50/50">
+                <h4 class="text-sm font-bold text-slate-800 mb-2 uppercase tracking-wide"><i class="fas fa-robot text-blue-600 mr-2"></i>Executive Summary</h4>
+                <p id="ai-summary" class="text-sm text-slate-600 leading-relaxed font-medium">
+                    กำลังประมวลผลข้อมูลโครงการ...
+                </p>
+            </div>
+        </div>
+
+        <!-- KPI Ribbon -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <!-- Progress -->
+            <div class="executive-card p-5">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Overall Progress</p>
+                        <h3 class="text-4xl font-black text-slate-800 mt-2" id="kpi-progress">0%</h3>
+                    </div>
+                    <div class="p-3 bg-blue-50 text-blue-600 rounded-lg"><i class="fas fa-chart-pie fa-lg"></i></div>
                 </div>
+                <div class="mt-4 w-full bg-slate-100 rounded-full h-1.5">
+                    <div id="pb-progress" class="bg-blue-600 h-1.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <p class="text-xs text-slate-500 mt-2" id="kpi-progress-sub">vs. Planned: <span class="font-bold">Calculating...</span></p>
             </div>
 
-            <div class="card relative overflow-hidden group border-t-4 border-t-slate-500">
-                <div class="relative z-10">
-                    <p class="text-sm text-slate-500 font-bold uppercase tracking-wider mb-1">สถานการณ์</p>
-                    <p class="text-2xl font-bold text-slate-700 mt-2" id="project-risk">ปกติ</p>
+            <!-- Time Elapsed -->
+            <div class="executive-card p-5">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Time Elapsed</p>
+                        <h3 class="text-4xl font-black text-slate-800 mt-2" id="kpi-time">0%</h3>
+                    </div>
+                    <div class="p-3 bg-amber-50 text-amber-600 rounded-lg"><i class="far fa-clock fa-lg"></i></div>
+                </div>
+                <div class="mt-4 w-full bg-slate-100 rounded-full h-1.5">
+                    <div id="pb-time" class="bg-amber-500 h-1.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <p class="text-xs text-slate-500 mt-2" id="kpi-time-sub">Day 0 of 0 Days</p>
+            </div>
+
+            <!-- Project Health Status -->
+            <div class="executive-card p-5">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Project Health</p>
+                        <h3 class="text-2xl font-bold mt-2" id="kpi-health">Loading...</h3>
+                        <p class="text-sm font-medium mt-1" id="kpi-health-cn">...</p>
+                    </div>
+                    <div id="health-icon-bg" class="p-3 bg-slate-50 text-slate-600 rounded-lg"><i id="health-icon" class="fas fa-shield-alt fa-lg"></i></div>
+                </div>
+                <p class="text-xs text-slate-500 mt-4 pt-4 border-t border-slate-100" id="kpi-current-task">Current Active Task: <span>-</span></p>
+            </div>
+
+            <!-- Key Dates -->
+            <div class="executive-card p-5">
+                <div class="flex justify-between items-start mb-4">
+                    <p class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Schedule Details</p>
+                    <div class="p-3 bg-indigo-50 text-indigo-600 rounded-lg"><i class="far fa-calendar-alt fa-lg"></i></div>
+                </div>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-500">Start Date:</span>
+                        <span class="font-bold text-slate-800" id="kpi-start">-</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-500">Target Finish:</span>
+                        <span class="font-bold text-slate-800" id="kpi-finish">-</span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-8">
-            <div class="card">
-                <h3 class="text-xl font-bold text-slate-800 mb-4 border-b pb-3"><i class="fas fa-stream mr-2 text-blue-600"></i>แผนผังการดำเนินงาน (Gantt Chart)</h3>
-                <div class="gantt-container border border-slate-200 shadow-sm bg-slate-50">
-                    <svg id="gantt"></svg>
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- S-Curve (Takes up 1/3) -->
+            <div class="lg:col-span-1 executive-card flex flex-col">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800">S-Curve Analysis</h3>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Plan vs Actual</span>
+                </div>
+                <div class="p-4 flex-grow relative min-h-[300px]">
+                    <canvas id="sCurveChart"></canvas>
                 </div>
             </div>
 
-            <div class="card">
-                <h3 class="text-xl font-bold text-slate-800 mb-4 border-b pb-3"><i class="fas fa-chart-line mr-2 text-blue-600"></i>กราฟแสดงความคืบหน้า (S-Curve)</h3>
-                <div class="relative h-96 w-full">
-                    <canvas id="progressChart"></canvas>
+            <!-- Gantt Chart (Takes up 2/3) -->
+            <div class="lg:col-span-2 executive-card flex flex-col">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800">Master Schedule (Gantt)</h3>
+                    <div class="flex gap-2 text-xs">
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-emerald-600 rounded-sm"></span> Completed</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-600 rounded-sm"></span> In Progress</span>
+                    </div>
+                </div>
+                <div class="p-4 overflow-hidden flex-grow">
+                    <div class="gantt-container" id="gantt-wrapper">
+                        <svg id="gantt"></svg>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Task Breakdown Table -->
+        <div class="executive-card">
+            <div class="p-4 border-b border-slate-100">
+                <h3 class="font-bold text-slate-800">Work Breakdown Structure (WBS) Execution Status</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 text-slate-500 uppercase text-xs font-bold">
+                        <tr>
+                            <th class="px-6 py-4 border-b border-slate-200 w-16">WBS</th>
+                            <th class="px-6 py-4 border-b border-slate-200">Task Description</th>
+                            <th class="px-6 py-4 border-b border-slate-200 w-32">Start</th>
+                            <th class="px-6 py-4 border-b border-slate-200 w-32">Finish</th>
+                            <th class="px-6 py-4 border-b border-slate-200 w-32 text-center">Status</th>
+                            <th class="px-6 py-4 border-b border-slate-200 w-48">Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wbs-table-body" class="divide-y divide-slate-100">
+                        <tr><td colspan="6" class="px-6 py-8 text-center text-slate-400"><i class="fas fa-circle-notch fa-spin mr-2"></i>Loading tasks...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </main>
 
     <script>
-        // ใช้ Timestamp หลอกให้ Browser โหลดไฟล์ใหม่เสมอ
+        // Google Sheet CSV Link
         const timestamp = new Date().getTime();
-        const BASE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqykGeBkoNhdkqy2DyK32-uq3kt96jg4ZZJDIz52eXGzr0Pcu4sM9tIV7lNe47YA/pub?output=csv';
-        const CSV_URL = BASE_CSV_URL + '&t=' + timestamp;
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqykGeBkoNhdkqy2DyK32-uq3kt96jg4ZZJDIz52eXGzr0Pcu4sM9tIV7lNe47YA/pub?output=csv&t=' + timestamp;
 
-        function fetchAndDisplayData() {
+        // Utilities
+        const formatDate = (dateStr) => {
+            if (!dateStr) return null;
+            let parts = dateStr.split('/');
+            if (parts.length === 3) return new Date(`${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}T00:00:00`);
+            return new Date(dateStr);
+        };
+        const formatForGantt = (dateObj) => {
+            if(!dateObj) return '';
+            return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+        };
+        const formatForDisplay = (dateObj) => {
+            if(!dateObj) return '-';
+            return dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        };
+
+        function fetchProjectData() {
             Papa.parse(CSV_URL, {
                 download: true,
-                header: false, // อ่านเป็น Array ตามโครงสร้าง Sheet
+                header: false,
                 complete: function(results) {
-                    const data = results.data;
-                    try {
-                        let overallProgress = '0%';
-                        let currentTask = '-';
-                        let ganttTasksData = [];
-                        let headerRowIndex = -1;
-                        let lastMainTaskTitle = '';
-
-                        // 1. วิ่งหา Overall Progress และหาตำแหน่งของแถวหัวตาราง (Header Row)
-                        for (let i = 0; i < data.length; i++) {
-                            for (let j = 0; j < data[i].length; j++) {
-                                let cell = (data[i][j] || '').toString().toUpperCase().trim();
-                                
-                                // หา Total Progress
-                                if (cell.includes('TOTAL PROGRESS')) {
-                                    // กวาดหา % ในแถวเดียวกัน
-                                    for (let k = j + 1; k < data[i].length; k++) {
-                                        if (data[i][k] && data[i][k].toString().includes('%')) {
-                                            overallProgress = data[i][k];
-                                            break;
-                                        }
-                                    }
-                                }
-                                
-                                // หาแถวที่เป็นหัวตารางเพื่อเริ่มดึงข้อมูล Task
-                                if (cell === 'WBS') {
-                                    headerRowIndex = i;
-                                }
-                            }
-                        }
-
-                        // 2. ดึงข้อมูลงาน (Tasks) เพื่อวาด Gantt Chart
-                        if (headerRowIndex !== -1) {
-                            // เริ่มอ่านแถวถัดจาก Header
-                            for (let i = headerRowIndex + 1; i < data.length; i++) {
-                                let row = data[i];
-                                if (row.length < 8) continue; // ข้ามแถวว่าง
-
-                                // โครงสร้างคอลัมน์ตามรูป: B=1(WBS), C=2(Title), D=3(Status), E=4(Start), F=5(Due), H=7(%)
-                                let wbs = (row[1] || '').toString().trim();
-                                let title = (row[2] || '').toString().trim();
-                                let status = (row[3] || '').toString().trim().toUpperCase();
-                                let start = (row[4] || '').toString().trim();
-                                let end = (row[5] || '').toString().trim();
-                                let pctStr = (row[7] || '').toString().trim();
-
-                                if (wbs === '' && title === '') continue; // ข้ามบรรทัดว่าง
-
-                                // ถ้าเป็นงานหลัก (WBS เป็นตัวเลขเดี่ยว ไม่มีจุดทศนิยม เช่น 1, 2, 3)
-                                if (wbs !== '' && !wbs.includes('.')) {
-                                    let pct = parseInt(pctStr) || 0;
-                                    lastMainTaskTitle = title; // จำชื่อหัวข้อหลักไว้
-
-                                    // ฟังก์ชันแปลงวันที่จาก M/D/YYYY (ใน Sheet) เป็น YYYY-MM-DD (สำหรับ Gantt)
-                                    let formatDt = (dStr) => {
-                                        if (!dStr) return '';
-                                        let pts = dStr.split('/');
-                                        if (pts.length === 3) {
-                                            return `${pts[2]}-${pts[0].padStart(2, '0')}-${pts[1].padStart(2, '0')}`;
-                                        }
-                                        return dStr;
-                                    };
-
-                                    let formattedStart = formatDt(start);
-                                    let formattedEnd = formatDt(end);
-
-                                    // ถ้ามีวันที่ครบ ให้เพิ่มลง Array Gantt
-                                    if (formattedStart && formattedEnd) {
-                                        let taskId = 'Task_' + wbs;
-                                        // สร้าง Dependency ให้อิงจากงานก่อนหน้า
-                                        let deps = parseInt(wbs) > 1 ? 'Task_' + (parseInt(wbs) - 1) : '';
-
-                                        ganttTasksData.push({
-                                            id: taskId,
-                                            name: wbs + '. ' + title,
-                                            start: formattedStart,
-                                            end: formattedEnd,
-                                            progress: pct,
-                                            dependencies: deps,
-                                            custom_class: pct === 100 ? 'bar-milestone' : ''
-                                        });
-                                    }
-                                }
-
-                                // 3. เช็คหา Current Task (หางานย่อยที่มีสถานะ IN PROGRESS)
-                                if (status === 'IN PROGRESS') {
-                                    currentTask = lastMainTaskTitle; // แสดงชื่อหัวข้อหลักของงานย่อยนั้น
-                                }
-                            }
-                        }
-
-                        // ถ้า Current Task ยังเป็น '-' อยู่ ให้เช็คจาก Progress
-                        if (currentTask === '-') {
-                            if (overallProgress === '100%') currentTask = 'โครงการเสร็จสมบูรณ์';
-                            else currentTask = 'รอการอัปเดต';
-                        }
-
-                        // นำข้อมูลไปแสดงบน UI Card
-                        document.getElementById('overall-progress').innerText = overallProgress;
-                        document.getElementById('current-task').innerText = currentTask;
-                        document.getElementById('project-status').innerText = 'ตามแผนงาน';
-                        document.getElementById('update-date').innerText = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
-                        // 4. เตรียมข้อมูล S-Curve
-                        let sCurveLabels = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'];
-                        let planData = [15, 30, 50, 70, 90, 100]; 
-                        // สร้าง Data ผลงานจริง ให้จุดกราฟวิ่งไปตาม Overall Progress
-                        let actualNum = parseInt(overallProgress) || 0;
-                        let actualData = [15, actualNum, null, null, null, null]; 
-
-                        // สั่งวาดกราฟ
-                        if(ganttTasksData.length > 0) {
-                            renderCharts(ganttTasksData, sCurveLabels, planData, actualData);
-                        } else {
-                            document.getElementById('gantt').innerHTML = '<p class="p-4 text-slate-500">ไม่พบข้อมูลวันที่สำหรับสร้าง Gantt Chart</p>';
-                        }
-
-                    } catch (e) {
-                        console.error("ประมวลผลข้อมูลผิดพลาด:", e);
-                    }
+                    processData(results.data);
                 },
                 error: function(err) {
-                    console.error("โหลดข้อมูลล้มเหลว:", err);
+                    document.getElementById('ai-summary').innerHTML = '<span class="text-red-500">Failed to load data from Google Sheet. Check permissions.</span>';
                 }
             });
         }
 
-        // Override Frappe Gantt dates เพื่อแก้ปัญหาการเว้นว่างด้านหน้า
-        if (typeof Gantt !== 'undefined' && Gantt.prototype.setup_gantt_dates) {
-            const originalSetupDates = Gantt.prototype.setup_gantt_dates;
-            Gantt.prototype.setup_gantt_dates = function() {
-                originalSetupDates.call(this);
-                let earliest_start = null;
-                this.tasks.forEach(task => {
-                    if (!earliest_start || task._start < earliest_start) earliest_start = task._start;
-                });
-                if (earliest_start) {
-                    let new_start = new Date(earliest_start);
-                    new_start.setDate(new_start.getDate() - 2); 
-                    this.gantt_start = new_start;
-                }
-            };
-        }
+        function processData(data) {
+            let overallProgressNum = 0;
+            let tasks = [];
+            let mainGanttTasks = [];
+            let headerRow = -1;
+            let activeTasksList = [];
 
-        // ฟังก์ชันวาดกราฟ
-        function renderCharts(tasks, labels, plan_data, actual_data) {
-            document.getElementById('gantt').innerHTML = '';
-            new Gantt("#gantt", tasks, {
-                header_height: 50, column_width: 28, step: 24, view_modes: ['Day', 'Week', 'Month'],
-                bar_height: 32, bar_corner_radius: 4, arrow_curve: 5, padding: 15, view_mode: 'Day', language: 'en',
-                custom_popup_html: function(task) {
-                    const end_date = task._end.toLocaleDateString('th-TH');
-                    let statusColor = task.progress === 100 ? 'text-emerald-600' : 'text-blue-600';
-                    return `
-                        <div class="p-4 bg-white shadow-xl rounded-lg border border-slate-100 min-w-[200px]" style="font-family: 'Sarabun', sans-serif;">
-                            <p class="font-bold text-slate-800 mb-2 border-b pb-2">${task.name}</p>
-                            <p class="text-sm text-slate-600 mb-1"><i class="far fa-calendar-check mr-1"></i> จบงาน: <span class="font-medium">${end_date}</span></p>
-                            <p class="text-sm ${statusColor} font-bold"><i class="fas fa-tasks mr-1"></i> ความคืบหน้า: ${task.progress}%</p>
-                        </div>
-                    `;
+            // 1. Find Overall Progress & Header Row
+            for (let i = 0; i < data.length; i++) {
+                for (let j = 0; j < data[i].length; j++) {
+                    let cell = (data[i][j] || '').toString().toUpperCase().trim();
+                    if (cell.includes('TOTAL PROGRESS')) {
+                        for (let k = j + 1; k < data[i].length; k++) {
+                            let val = data[i][k];
+                            if (val && /\d/.test(val)) {
+                                overallProgressNum = parseFloat(val);
+                                if(overallProgressNum < 1 && overallProgressNum > 0) overallProgressNum *= 100; // Handle 0.34
+                                break;
+                            }
+                        }
+                    }
+                    if (cell === 'WBS') headerRow = i;
                 }
-            });
+            }
 
-            let canvas = document.getElementById('progressChart');
-            let ctx = canvas.getContext('2d');
-            if(window.myProgressChart) { window.myProgressChart.destroy(); }
-            Chart.defaults.font.family = "'Sarabun', sans-serif";
+            // 2. Parse Tasks
+            if (headerRow !== -1) {
+                let currentMainTask = null;
+
+                for (let i = headerRow + 1; i < data.length; i++) {
+                    let row = data[i];
+                    if (row.length < 8) continue;
+
+                    let wbs = (row[1] || '').toString().trim();
+                    let title = (row[2] || '').toString().trim();
+                    let status = (row[3] || '').toString().trim().toUpperCase();
+                    let startDateStr = (row[4] || '').toString().trim();
+                    let endDateStr = (row[5] || '').toString().trim();
+                    let duration = parseInt((row[6] || '').toString().trim()) || 0;
+                    let pctStr = (row[7] || '').toString().trim();
+                    let pct = parseFloat(pctStr) || 0;
+                    if(pct < 1 && pct > 0) pct *= 100;
+
+                    if (!wbs && !title) continue;
+
+                    let isMain = wbs !== '' && !wbs.includes('.');
+                    let sDate = formatDate(startDateStr);
+                    let eDate = formatDate(endDateStr);
+
+                    let taskObj = {
+                        wbs: wbs, title: title, status: status, 
+                        start: sDate, end: eDate, 
+                        duration: duration, progress: Math.round(pct),
+                        isMain: isMain
+                    };
+
+                    tasks.push(taskObj);
+
+                    if (isMain) {
+                        currentMainTask = taskObj;
+                        if (sDate && eDate) {
+                            let id = 'Task_' + wbs;
+                            let deps = parseInt(wbs) > 1 ? 'Task_' + (parseInt(wbs) - 1) : '';
+                            mainGanttTasks.push({
+                                id: id,
+                                name: `${wbs}. ${title}`,
+                                start: formatForGantt(sDate),
+                                end: formatForGantt(eDate),
+                                progress: taskObj.progress,
+                                dependencies: deps,
+                                custom_class: taskObj.progress === 100 ? 'bar-milestone' : ''
+                            });
+                        }
+                    }
+
+                    if (status === 'IN PROGRESS') {
+                        activeTasksList.push(title);
+                    }
+                }
+            }
+
+            // 3. Calculate Project Level Metrics
+            let projStart = new Date(Math.min(...tasks.filter(t => t.start).map(t => t.start)));
+            let projEnd = new Date(Math.max(...tasks.filter(t => t.end).map(t => t.end)));
+            let today = new Date();
+            // Force today for demo purpose if outside project range (Optional, remove in prod)
+            // if(today < projStart) today = new Date(projStart.getTime() + (7 * 24 * 60 * 60 * 1000)); 
+
+            let totalDays = (projEnd - projStart) / (1000 * 60 * 60 * 24) || 1;
+            let daysElapsed = Math.max(0, (today - projStart) / (1000 * 60 * 60 * 24));
+            if (today > projEnd) daysElapsed = totalDays;
             
-            window.myProgressChart = new Chart(ctx, {
+            let timeProgressNum = Math.round((daysElapsed / totalDays) * 100);
+
+            // Simple Plan Calc (Linear based on time)
+            let plannedProgressNum = timeProgressNum; 
+            
+            // Health Logic
+            let healthText = 'On Track';
+            let healthCn = '按计划进行';
+            let healthColor = 'emerald';
+            let healthIcon = 'fa-check-circle';
+            let variance = overallProgressNum - plannedProgressNum;
+
+            if (variance <= -10) {
+                healthText = 'Delayed (Critical)';
+                healthCn = '严重延误';
+                healthColor = 'red';
+                healthIcon = 'fa-exclamation-triangle';
+            } else if (variance < 0) {
+                healthText = 'Behind Schedule';
+                healthCn = '进度落后';
+                healthColor = 'amber';
+                healthIcon = 'fa-exclamation-circle';
+            } else if (overallProgressNum >= 100) {
+                healthText = 'Completed';
+                healthCn = '已完成';
+                healthColor = 'blue';
+                healthIcon = 'fa-flag-checkered';
+            }
+
+            // 4. Update UI DOM Elements
+            document.getElementById('sync-time').innerText = new Date().toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'});
+            
+            // Progress
+            document.getElementById('kpi-progress').innerText = Math.round(overallProgressNum) + '%';
+            document.getElementById('pb-progress').style.width = Math.round(overallProgressNum) + '%';
+            document.getElementById('kpi-progress-sub').innerHTML = `vs. Planned: <span class="font-bold">${plannedProgressNum}%</span>`;
+            
+            // Time
+            document.getElementById('kpi-time').innerText = timeProgressNum + '%';
+            document.getElementById('pb-time').style.width = timeProgressNum + '%';
+            document.getElementById('kpi-time-sub').innerText = `Day ${Math.floor(daysElapsed)} of ${Math.ceil(totalDays)} Days`;
+
+            // Health
+            document.getElementById('kpi-health').innerText = healthText;
+            document.getElementById('kpi-health-cn').innerText = healthCn;
+            document.getElementById('kpi-health').className = `text-2xl font-bold mt-2 text-${healthColor}-600`;
+            document.getElementById('kpi-health-cn').className = `text-sm font-medium mt-1 text-${healthColor}-500`;
+            document.getElementById('health-icon-bg').className = `p-3 bg-${healthColor}-50 text-${healthColor}-600 rounded-lg`;
+            document.getElementById('health-icon').className = `fas ${healthIcon} fa-lg`;
+
+            // Dates
+            document.getElementById('kpi-start').innerText = formatForDisplay(projStart);
+            document.getElementById('kpi-finish').innerText = formatForDisplay(projEnd);
+
+            let actTaskText = activeTasksList.length > 0 ? activeTasksList.join(', ') : 'None (Or Pending Update)';
+            document.getElementById('kpi-current-task').innerHTML = `Current Active: <span class="font-semibold text-slate-800">${actTaskText}</span>`;
+
+            // Executive Summary Gen
+            let summaryHtml = `โครงการปัจจุบันมีความคืบหน้า <strong class="text-slate-900">${Math.round(overallProgressNum)}%</strong> 
+                               เทียบกับแผนงานที่ตั้งไว้ที่ ${plannedProgressNum}% `;
+            if (variance < 0) summaryHtml += `(<span class="text-red-600 font-bold">ล่าช้า ${Math.abs(Math.round(variance))}%</span>) `;
+            else summaryHtml += `(<span class="text-emerald-600 font-bold">เร็วกว่าแผน ${Math.round(variance)}%</span>) `;
+            
+            summaryHtml += `โดยใช้ระยะเวลาไปแล้ว ${Math.floor(daysElapsed)} วัน จากทั้งหมด ${Math.ceil(totalDays)} วัน (${timeProgressNum}%) 
+                            ขณะนี้สถานะโครงการอยู่ในเกณฑ์ <strong class="text-${healthColor}-600">${healthText}</strong>`;
+            document.getElementById('ai-summary').innerHTML = summaryHtml;
+
+            // 5. Render WBS Table
+            let tbody = document.getElementById('wbs-table-body');
+            tbody.innerHTML = '';
+            tasks.forEach(t => {
+                let isBold = t.isMain ? 'font-bold text-slate-900 bg-slate-50/50' : '';
+                let indent = t.isMain ? '' : 'pl-4';
+                
+                let badgeClass = 'bg-slate-100 text-slate-600';
+                if(t.status === 'COMPLETED') badgeClass = 'bg-emerald-100 text-emerald-700';
+                if(t.status === 'IN PROGRESS') badgeClass = 'bg-blue-100 text-blue-700';
+                if(t.status === 'PENDING') badgeClass = 'bg-amber-100 text-amber-700';
+
+                let rowHtml = `
+                    <tr class="table-row-hover ${isBold}">
+                        <td class="px-6 py-3 border-b border-slate-100 whitespace-nowrap">${t.wbs}</td>
+                        <td class="px-6 py-3 border-b border-slate-100 ${indent}">${t.title}</td>
+                        <td class="px-6 py-3 border-b border-slate-100">${formatForDisplay(t.start)}</td>
+                        <td class="px-6 py-3 border-b border-slate-100">${formatForDisplay(t.end)}</td>
+                        <td class="px-6 py-3 border-b border-slate-100 text-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${badgeClass}">${t.status || 'N/A'}</span>
+                        </td>
+                        <td class="px-6 py-3 border-b border-slate-100">
+                            <div class="flex items-center gap-2">
+                                <div class="w-full bg-slate-200 rounded-full h-1.5 flex-grow">
+                                    <div class="${t.progress === 100 ? 'bg-emerald-500' : 'bg-blue-600'} h-1.5 rounded-full" style="width: ${t.progress}%"></div>
+                                </div>
+                                <span class="text-xs font-semibold w-8 text-right">${t.progress}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.insertAdjacentHTML('beforeend', rowHtml);
+            });
+
+            // 6. Render Gantt
+            if (mainGanttTasks.length > 0) {
+                document.getElementById('gantt').innerHTML = '';
+                new Gantt("#gantt", mainGanttTasks, {
+                    header_height: 40, column_width: 20, step: 24, view_modes: ['Day', 'Week', 'Month'],
+                    bar_height: 24, bar_corner_radius: 3, arrow_curve: 3, padding: 18, view_mode: 'Day', language: 'en',
+                });
+            } else {
+                document.getElementById('gantt-wrapper').innerHTML = '<p class="p-8 text-center text-slate-400">Insufficient date data for Gantt chart.</p>';
+            }
+
+            // 7. Render S-Curve (Simulated Weekly Generation)
+            renderSCurve(projStart, projEnd, totalDays, overallProgressNum, daysElapsed);
+        }
+
+        function renderSCurve(start, end, totalDays, currentActual, daysElapsed) {
+            // Generate Weekly data points
+            let weeks = Math.ceil(totalDays / 7);
+            let labels = [];
+            let planData = [];
+            let actualData = [];
+
+            for(let i = 0; i <= weeks; i++) {
+                labels.push('W' + (i));
+                // Linear plan assumption for standard S-Curve demo
+                let p = Math.min(100, Math.round((i / weeks) * 100)); 
+                
+                // Add slight S-Curve shape mathematically (Sigmoid)
+                let x = (i / weeks) * 12 - 6; 
+                let sigmoidPlan = Math.round((1 / (1 + Math.exp(-x))) * 100);
+                
+                // Use simple linear if it's very short, else sigmoid
+                planData.push(weeks < 3 ? p : sigmoidPlan);
+
+                // Populate Actual only up to current elapsed time
+                let weekElapsed = i * 7;
+                if(weekElapsed <= daysElapsed + 7) {
+                    if (i === 0) actualData.push(0);
+                    else if (weekElapsed >= daysElapsed) actualData.push(currentActual); // Current
+                    else {
+                        // Interpolate past actuals relative to current
+                        let ratio = weekElapsed / daysElapsed;
+                        actualData.push(Math.round(currentActual * ratio));
+                    }
+                } else {
+                    actualData.push(null);
+                }
+            }
+
+            const ctx = document.getElementById('sCurveChart').getContext('2d');
+            if(window.mySCurve) window.mySCurve.destroy();
+
+            Chart.defaults.font.family = "'Inter', 'Sarabun', sans-serif";
+            
+            window.mySCurve = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'แผนงาน (Plan)', data: plan_data, borderColor: '#94a3b8', borderDash: [5, 5], fill: false, tension: 0.4 },
-                        { label: 'ผลงานจริง (Actual)', data: actual_data, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.15)', fill: true, tension: 0.4, borderWidth: 3, pointRadius: 5 }
+                        {
+                            label: 'Planned',
+                            data: planData,
+                            borderColor: '#94a3b8',
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Actual Progress',
+                            data: actualData,
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                            fill: true,
+                            borderWidth: 3,
+                            pointBackgroundColor: '#fff',
+                            pointBorderColor: '#2563eb',
+                            pointRadius: 4,
+                            tension: 0.4
+                        }
                     ]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top' } },
-                    scales: { y: { beginAtZero: true, max: 100 } }
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } } },
+                    scales: { 
+                        y: { beginAtZero: true, max: 100, grid: { color: '#f1f5f9' }, ticks: { callback: function(value){return value+"%"} } },
+                        x: { grid: { display: false } }
+                    }
                 }
             });
         }
 
-        // เริ่มต้นการทำงาน
-        fetchAndDisplayData();
+        // Init
+        fetchProjectData();
     </script>
 </body>
 </html>
